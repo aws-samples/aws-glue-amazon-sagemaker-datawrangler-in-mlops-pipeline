@@ -1,0 +1,170 @@
+#Glue CF Stack
+
+AWSTemplateFormatVersion: '2010-09-09'
+# Sample CloudFormation template in YAML to create a database, Crawler and  tables
+
+# Parameters substituted in the Resources section
+# These parameters are names of the resources created in the Data Catalog
+Parameters:
+  CFNDatabaseName:
+    Type: String
+    Default: amazonconnect_db
+    Description: Database name to hold all the tables for Connect Data
+  CFNS3ConnectDataPath:
+    Type: String
+    Default: 
+    #Example:  s3://connect-mmnm-ctr/contact-centre/ <- this is the parent prefix inside which you have the year/month/day structure of the data
+    Description: S3 path for Amazon connect CTR data
+  CFNS3ContactlensDataPath:
+    Type: String
+    Default: 
+    # Exaple: s3://amazon-connect-6e0d69da3532/Analysis/Voice <-  this is the s3 prefix where the contact lens data is saved
+    Description: S3 path for Amazon contact Lens Data
+  CFNS3ConnectCustomerDataPath:
+    Type: String
+    Default: 
+    # Example: s3://amazon-connect-f5277b9142db/Customerdata <- this is where the customer data is saved on s3, it can be extracted from other sources, such as salesforce etc.
+    Description: S3 path for Amazon connect Customer Data
+  CFNCrawlerNameForConnectData:
+    Type: String
+    Default: cfn-crawler-connect-ctr-data
+    Description: Crawler Name for Amazon Connect Data
+  CFNCrawlerNameForContactlensData:
+    Type: String
+    Default: cfn-crawler-contact-lens-data
+    Description: Crawler Name for Amazon Contact lens Data
+  CFNCrawlerNameForConnectCustomerData:
+    Type: String
+    Default: cfn-crawler-connect-customer-data
+    Description: Crawler Name for Amazon Connect Customer Data
+  CFNTablePrefixName:
+    Type: String
+    Default: cfn_connect_
+    Description: prefix to for all the tables to be created for Amazon connect data
+  CFNScriptLocation:
+    Type: String
+    Default: 
+   # Example: s3://amazon-connect-f5277b9142db/scripts/connect-blog-aggregateCustomerSentimets.py <- this is where the glue script is saved on s3
+    Description: Glue ETl Script location on S3
+# Resources to create metadata in the Data Catalog
+Resources:
+###
+# Create an AWS Glue database
+  CFNDatabaseConnect:
+    Type: AWS::Glue::Database
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseInput:
+        Name: !Ref CFNDatabaseName
+        Description: Database to hold tables for Amazon Connect data
+###
+#Create IAM Role assumed by the crawler. For demonstration, this role is given all permissions.
+  CFNRoleConnect:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "glue.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
+      Policies:
+        -
+          PolicyName: "root"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              -
+                Effect: "Allow"
+                Action: "*"
+                Resource: "*"
+#create Crawlers
+# Crawler for Connect CTR
+  CFNCrawlerConnectCTR:
+    Type: AWS::Glue::Crawler
+    Properties:
+      Name: !Ref CFNCrawlerNameForConnectData
+      Role: !GetAtt CFNRoleConnect.Arn
+      #Classifiers: none, use the default classifier
+      Description: AWS Glue crawler to crawl flights data
+      #Schedule: none, use default run-on-demand
+      DatabaseName: !Ref CFNDatabaseName
+      Targets:
+        S3Targets:
+          #  S3 bucket with the Connect CTR data
+          - Path: !Ref CFNS3ConnectDataPath
+      TablePrefix: !Ref CFNTablePrefixName
+      SchemaChangePolicy:
+        UpdateBehavior: "UPDATE_IN_DATABASE"
+        DeleteBehavior: "LOG"
+      Configuration: "{\"Version\":1.0,\"CrawlerOutput\":{\"Partitions\":{\"AddOrUpdateBehavior\":\"InheritFromTable\"},\"Tables\":{\"AddOrUpdateBehavior\":\"MergeNewColumns\"}}}"
+# Crawler for Contact lens DATA
+  CFNCrawlerContactlens:
+    Type: AWS::Glue::Crawler
+    Properties:
+      Name: !Ref CFNCrawlerNameForContactlensData
+      Role: !GetAtt CFNRoleConnect.Arn
+      #Classifiers: none, use the default classifier
+      Description: AWS Glue crawler to crawl flights data
+      #Schedule: none, use default run-on-demand
+      DatabaseName: !Ref CFNDatabaseName
+      Targets:
+        S3Targets:
+          #  S3 bucket with the Connect CTR data
+          - Path: !Ref CFNS3ContactlensDataPath
+      TablePrefix: !Ref CFNTablePrefixName
+      SchemaChangePolicy:
+        UpdateBehavior: "UPDATE_IN_DATABASE"
+        DeleteBehavior: "LOG"
+      Configuration: "{\"Version\":1.0,\"CrawlerOutput\":{\"Partitions\":{\"AddOrUpdateBehavior\":\"InheritFromTable\"},\"Tables\":{\"AddOrUpdateBehavior\":\"MergeNewColumns\"}}}"
+# Crawler for Connect Customer Data
+  CFNCrawlerConnectCustomer:
+    Type: AWS::Glue::Crawler
+    Properties:
+      Name: !Ref CFNCrawlerNameForConnectCustomerData
+      Role: !GetAtt CFNRoleConnect.Arn
+      #Classifiers: none, use the default classifier
+      Description: AWS Glue crawler to crawl flights data
+      #Schedule: none, use default run-on-demand
+      DatabaseName: !Ref CFNDatabaseName
+      Targets:
+        S3Targets:
+          #  S3 bucket with the Connect CTR data
+          - Path: !Ref CFNS3ConnectCustomerDataPath
+      TablePrefix: !Ref CFNTablePrefixName
+      SchemaChangePolicy:
+        UpdateBehavior: "UPDATE_IN_DATABASE"
+        DeleteBehavior: "LOG"
+      Configuration: "{\"Version\":1.0,\"CrawlerOutput\":{\"Partitions\":{\"AddOrUpdateBehavior\":\"InheritFromTable\"},\"Tables\":{\"AddOrUpdateBehavior\":\"MergeNewColumns\"}}}"
+####################################
+# Create Glue ETL Job
+  CFNAggregateCustomerSentiments:
+    Type: AWS::Glue::Job
+    Properties:
+      Name: "CFN-Aggregate-Customer-Sentiments"
+      Role: !GetAtt CFNRoleConnect.Arn
+      GlueVersion: 2.0
+      DefaultArguments:
+        "--job-bookmark-option": "job-bookmark-enable"
+      # If script written in Scala, then set DefaultArguments={'--job-language'; 'scala', '--class': 'your scala class'}
+      #Connections:  No connection needed for S3 to S3 job
+      #  ConnectionsList
+      #MaxRetries: Double
+      Description: Job created with CloudFormation
+      #LogUri: String
+      Command:
+        Name: glueetl
+        ScriptLocation: !Ref CFNScriptLocation
+             # for access to directories use proper IAM role with permission to buckets and folders that begin with "aws-glue-"
+             # script uses temp directory from job definition if required (temp directory not used S3 to S3)
+             # script defines target for output as s3://aws-glue-target/sal
+      WorkerType: G.1X
+      NumberOfWorkers: 5
+      ExecutionProperty:
+        MaxConcurrentRuns: 1
+      MaxRetries: 0

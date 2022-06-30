@@ -1,0 +1,175 @@
+{
+  "metadata": {
+    "version": 1,
+    "disable_limits": false
+  },
+  "nodes": [
+    {
+      "node_id": "2704b888-59de-413c-bc15-8ac20cde8375",
+      "type": "SOURCE",
+      "operator": "sagemaker.s3_source_0.1",
+      "parameters": {
+        "dataset_definition": {
+          "__typename": "S3CreateDatasetDefinitionOutput",
+          "datasetSourceType": "S3",
+          "name": "dataset.csv",
+          "description": null,
+          "s3ExecutionContext": {
+            "__typename": "S3ExecutionContext",
+            "s3Uri": "s3://sagemaker-us-east-1-631450739534/sagemaker/DEMO-xgboost-customer-churn-connect/data/dataset.csv",
+            "s3ContentType": "csv",
+            "s3HasHeader": true,
+            "s3FieldDelimiter": ",",
+            "s3DirIncludesNested": false,
+            "s3AddsFilenameColumn": false
+          }
+        }
+      },
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "default"
+        }
+      ]
+    },
+    {
+      "node_id": "99d1a36d-66f8-4969-80f0-1f0770c58bf2",
+      "type": "TRANSFORM",
+      "operator": "sagemaker.spark.infer_and_cast_type_0.1",
+      "parameters": {},
+      "trained_parameters": {
+        "schema": {
+          "State": "string",
+          "Account_Length": "long",
+          "Area_Code": "long",
+          "customerID": "long",
+          "Int_l_Plan": "string",
+          "VMail_Plan": "string",
+          "VMail_Message": "long",
+          "Day_Mins": "float",
+          "Day_Calls": "long",
+          "Day_Charge": "float",
+          "Eve_Mins": "float",
+          "Eve_Calls": "long",
+          "Eve_Charge": "float",
+          "Night_Mins": "float",
+          "Night_Calls": "long",
+          "Night_Charge": "float",
+          "Intl_Mins": "float",
+          "Intl_Calls": "long",
+          "Intl_Charge": "float",
+          "CustServ_Calls": "long",
+          "Churn": "bool",
+          "pastSenti_nut": "long",
+          "pastSenti_pos": "long",
+          "pastSenti_neg": "long",
+          "mth_remain": "long"
+        }
+      },
+      "inputs": [
+        {
+          "name": "default",
+          "node_id": "2704b888-59de-413c-bc15-8ac20cde8375",
+          "output_name": "default"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "default"
+        }
+      ]
+    },
+    {
+      "node_id": "0ef7c84a-b3d9-493a-b9ae-c52f576f2bfe",
+      "type": "TRANSFORM",
+      "operator": "sagemaker.spark.custom_pandas_0.1",
+      "parameters": {
+        "code": "# Table is available as variable `df`\nimport pandas as pd\n\ndf = df.drop([\"Day_Charge\", \"Eve_Charge\", \"Night_Charge\", \"Intl_Charge\", \"Area_Code\",\"State\"], axis=1)\ndf = pd.get_dummies(df)\n\n# Add event time for features store\ndf['event_time']=pd.to_datetime('now').timestamp()\n\n"
+      },
+      "inputs": [
+        {
+          "name": "df",
+          "node_id": "881fb0fb-d960-4b93-a2ef-39ac23255e2f",
+          "output_name": "default"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "default"
+        }
+      ]
+    },
+    {
+      "node_id": "881fb0fb-d960-4b93-a2ef-39ac23255e2f",
+      "type": "TRANSFORM",
+      "operator": "sagemaker.spark.cast_single_data_type_0.1",
+      "parameters": {
+        "column": "Churn",
+        "original_data_type": "Boolean",
+        "data_type": "string"
+      },
+      "inputs": [
+        {
+          "name": "df",
+          "node_id": "99d1a36d-66f8-4969-80f0-1f0770c58bf2",
+          "output_name": "default"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "default"
+        }
+      ]
+    },
+    {
+      "node_id": "2db072bc-fcd4-4793-bdf9-f03d5c0c2c49",
+      "type": "TRANSFORM",
+      "operator": "sagemaker.spark.manage_columns_0.1",
+      "parameters": {
+        "operator": "Drop column",
+        "drop_column_parameters": {
+          "column_to_drop": "Churn_false"
+        }
+      },
+      "inputs": [
+        {
+          "name": "df",
+          "node_id": "0ef7c84a-b3d9-493a-b9ae-c52f576f2bfe",
+          "output_name": "default"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "default"
+        }
+      ]
+    },
+    {
+      "node_id": "c71b352f-7bf5-4570-a80e-9acae0b6bf3f",
+      "type": "TRANSFORM",
+      "operator": "sagemaker.spark.manage_columns_0.1",
+      "parameters": {
+        "operator": "Move column",
+        "move_column_parameters": {
+          "move_type": "Move to start",
+          "move_to_start_parameters": {
+            "column_to_move": "Churn_true"
+          }
+        },
+        "drop_column_parameters": {}
+      },
+      "inputs": [
+        {
+          "name": "df",
+          "node_id": "2db072bc-fcd4-4793-bdf9-f03d5c0c2c49",
+          "output_name": "default"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "default"
+        }
+      ]
+    }
+  ]
+}
