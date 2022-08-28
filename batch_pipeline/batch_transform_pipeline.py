@@ -85,6 +85,13 @@ def get_batch_pipeline(
     processing_instance_type = ParameterString(
         name="ProcessingInstanceType", default_value="ml.m5.xlarge"
     )
+    
+    batch_instance_count = ParameterInteger(
+        name="BatchInstanceCount", default_value=2
+    )
+    batch_instance_type = ParameterString(
+        name="BatchInstanceType", default_value="ml.m5.xlarge"
+    )
 
     batch_output = ParameterString(
         name="BatchOutputUrl",
@@ -126,8 +133,8 @@ def get_batch_pipeline(
 
     create_batchdata_processor = SKLearnProcessor(
         framework_version="0.23-1",
-        instance_type="ml.m5.xlarge",
-        instance_count=1,
+        instance_type=processing_instance_type,
+        instance_count=processing_instance_count,
         base_job_name=f"{base_job_prefix}-create-batch-dataset",
         sagemaker_session=sagemaker_session,
         role=role,
@@ -226,8 +233,8 @@ def get_batch_pipeline(
     
     transformer = Transformer(
         model_name=step_create_model.properties.ModelName,
-        instance_type="ml.m5.xlarge",
-        instance_count=1,
+        instance_type=batch_instance_type,
+        instance_count=batch_instance_count,
         output_path=batch_output,
         accept="text/csv",
         assemble_with="Line",
@@ -248,6 +255,13 @@ def get_batch_pipeline(
     
     pipeline = Pipeline(
         name=pipeline_name,
+        parameters=[
+            processing_instance_type,
+            processing_instance_count,
+            batch_instance_type,
+            batch_instance_count,
+            batch_output,
+        ],
         steps=[step_batch_data, step_latest_model_fetch, step_create_model, step_transform],
     )
     
