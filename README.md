@@ -99,6 +99,9 @@ Starts an ETL job on schedule or on a particular event, for example, upload of a
 ### Model build pipeline
 ![](img/model-build-pipeline.png)
 
+### Batch transform pipeline
+![](img/batch_pipeline.png)
+
 ## Deployment
 
 ## Clean up
